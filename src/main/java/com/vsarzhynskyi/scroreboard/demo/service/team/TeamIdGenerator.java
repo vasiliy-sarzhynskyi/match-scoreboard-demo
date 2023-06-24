@@ -1,9 +1,10 @@
-package com.vsarzhynskyi.scroreboard.demo.service;
+package com.vsarzhynskyi.scroreboard.demo.service.team;
+
+import com.vsarzhynskyi.scroreboard.demo.service.IdGenerator;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-// with interface
-public class MatchIdGenerator implements IdGenerator {
+public class TeamIdGenerator implements IdGenerator {
 
     private final AtomicInteger incrementor = new AtomicInteger();
 

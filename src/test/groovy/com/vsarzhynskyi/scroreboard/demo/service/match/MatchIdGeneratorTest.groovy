@@ -1,4 +1,4 @@
-package com.vsarzhynskyi.scroreboard.demo.service
+package com.vsarzhynskyi.scroreboard.demo.service.match
 
 import spock.lang.Specification
 
