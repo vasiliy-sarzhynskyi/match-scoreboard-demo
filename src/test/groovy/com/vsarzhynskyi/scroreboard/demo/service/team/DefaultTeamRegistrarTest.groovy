@@ -214,4 +214,30 @@ class DefaultTeamRegistrarTest extends Specification {
         isRegistered
     }
 
+    def 'should get all registered teams'() {
+        given:
+        def teamRegistrar = new DefaultTeamRegistrar(teamIdGenerator)
+
+        when:
+        def fetchedTeams = teamRegistrar.getAllTeams()
+
+        then:
+        fetchedTeams.isEmpty()
+
+        when:
+        teamRegistrar.registerTeam(TEAM_NAME)
+        teamRegistrar.registerTeam('Slovenia')
+        teamRegistrar.registerTeam('Austria')
+        fetchedTeams = teamRegistrar.getAllTeams()
+
+        then:
+        1 * teamIdGenerator.nextId() >> 3
+        1 * teamIdGenerator.nextId() >> 4
+        1 * teamIdGenerator.nextId() >> 5
+        0 * _
+
+        fetchedTeams.size() == 3
+        fetchedTeams.collect({it.name}).toSet() == [TEAM_NAME, 'Slovenia', 'Austria'] as Set
+    }
+
 }

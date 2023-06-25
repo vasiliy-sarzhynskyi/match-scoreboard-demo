@@ -2,6 +2,8 @@ package com.vsarzhynskyi.scroreboard.demo.service.team;
 
 import com.vsarzhynskyi.scroreboard.demo.model.Team;
 
+import java.util.List;
+
 public interface TeamRegistrar {
 
     Team registerTeam(String teamName);
@@ -11,6 +13,7 @@ public interface TeamRegistrar {
     boolean isTeamRegistered(int teamId);
     Team getTeam(String teamName);
     Team getTeam(int teamId);
+    List<Team> getAllTeams();
 
 
 }

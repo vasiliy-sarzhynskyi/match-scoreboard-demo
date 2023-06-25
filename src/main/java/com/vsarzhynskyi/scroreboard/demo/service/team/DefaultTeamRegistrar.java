@@ -5,6 +5,8 @@ import com.vsarzhynskyi.scroreboard.demo.exception.TeamNotRegisteredException;
 import com.vsarzhynskyi.scroreboard.demo.model.Team;
 import com.vsarzhynskyi.scroreboard.demo.service.IdGenerator;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -126,6 +128,15 @@ public class DefaultTeamRegistrar implements TeamRegistrar {
         } finally {
             readLock.unlock();
         }
+    }
+
+    @Override
+    public List<Team> getAllTeams() {
+        var readLock = readWriteLock.readLock();
+        readLock.lock();
+        var allMatches = new ArrayList<>(teamIdToTeamMapping.values());
+        readLock.unlock();
+        return allMatches;
     }
 
 }

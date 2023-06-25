@@ -14,7 +14,9 @@ public class MatchesScoreboardSummary {
         for (var match: matches) {
             stringBuilder.append(match).append('\n');
         }
-        stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        if (stringBuilder.length() != 0) {
+            stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+        }
         return stringBuilder.toString();
     }
 }
