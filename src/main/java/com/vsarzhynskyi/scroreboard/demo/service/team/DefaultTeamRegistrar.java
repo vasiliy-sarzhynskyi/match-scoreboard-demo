@@ -1,6 +1,7 @@
 package com.vsarzhynskyi.scroreboard.demo.service.team;
 
 import com.vsarzhynskyi.scroreboard.demo.exception.TeamAlreadyRegisteredException;
+import com.vsarzhynskyi.scroreboard.demo.exception.TeamNameInvalidException;
 import com.vsarzhynskyi.scroreboard.demo.exception.TeamNotRegisteredException;
 import com.vsarzhynskyi.scroreboard.demo.model.Team;
 import com.vsarzhynskyi.scroreboard.demo.service.IdGenerator;
@@ -11,10 +12,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
 
 import static java.util.Objects.isNull;
 
 public class DefaultTeamRegistrar implements TeamRegistrar {
+
+    private static final String VALID_TEAM_NAME_PATTERN = "[a-zA-Z0-9\\- ]+";
 
     private final IdGenerator teamIdGenerator;
 
@@ -32,6 +36,7 @@ public class DefaultTeamRegistrar implements TeamRegistrar {
 
     @Override
     public Team registerTeam(String teamName) {
+        verifyTeamNameValid(teamName);
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
@@ -137,6 +142,13 @@ public class DefaultTeamRegistrar implements TeamRegistrar {
         var allMatches = new ArrayList<>(teamIdToTeamMapping.values());
         readLock.unlock();
         return allMatches;
+    }
+
+    private void verifyTeamNameValid(String teamName) {
+        Pattern pattern = Pattern.compile(VALID_TEAM_NAME_PATTERN);
+        if (isNull(teamName) || teamName.isBlank() || !pattern.matcher(teamName).matches()) {
+            throw new TeamNameInvalidException (teamName);
+        }
     }
 
 }

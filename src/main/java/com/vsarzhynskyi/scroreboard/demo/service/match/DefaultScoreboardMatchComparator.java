@@ -12,7 +12,7 @@ public class DefaultScoreboardMatchComparator implements Comparator<MatchDetails
         if (deltaScores != 0) {
             return deltaScores;
         }
-        return match2.getMatchId() - match1.getMatchId();
+        return match2.getMatchStartTimestamp().compareTo(match1.getMatchStartTimestamp());
     }
 
     private int getMatchTotalScore(MatchDetails matchDetails) {

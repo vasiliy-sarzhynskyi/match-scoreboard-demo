@@ -1,6 +1,7 @@
 package com.vsarzhynskyi.scroreboard.demo.service.match;
 
 import com.vsarzhynskyi.scroreboard.demo.exception.MatchAlreadyRegisteredException;
+import com.vsarzhynskyi.scroreboard.demo.exception.MatchInvalidUpdateException;
 import com.vsarzhynskyi.scroreboard.demo.exception.MatchNotRegisteredException;
 import com.vsarzhynskyi.scroreboard.demo.model.MatchDetails;
 import com.vsarzhynskyi.scroreboard.demo.model.MatchStatus;
@@ -11,8 +12,10 @@ import com.vsarzhynskyi.scroreboard.demo.service.team.TeamRegistrar;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -31,6 +34,7 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
     private final ReadWriteLock readWriteLock;
     private final Map<Integer, MatchDetails> matchIdToMatchDetailsMapping;
     private final Map<String, MatchDetails> matchTeamIdsToMatchDetailsMapping;
+    private final Set<Integer> inProgressPlayingTeamIdsSet;
 
     public DefaultMatchRegistrar(IdGenerator matchIdGenerator,
                                  TeamRegistrar teamRegistrar,
@@ -42,6 +46,7 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         readWriteLock = new ReentrantReadWriteLock();
         matchIdToMatchDetailsMapping = new ConcurrentHashMap<>();
         matchTeamIdsToMatchDetailsMapping = new ConcurrentHashMap<>();
+        inProgressPlayingTeamIdsSet = ConcurrentHashMap.newKeySet();
     }
 
     @Override
@@ -88,15 +93,20 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
-            verifyMatchIdRegistered(matchId);
+            verifyMatchIdRegisteredWithCurrentStatus(matchId, EnumSet.of(MatchStatus.REGISTERED));
             var match = matchIdToMatchDetailsMapping.get(matchId);
+            verifyTeamInProgressPlayingOnlyInSingleMatch(match.getHomeTeam().getId());
+            verifyTeamInProgressPlayingOnlyInSingleMatch(match.getAwayTeam().getId());
             var updatedMatch = match.toBuilder()
                     .matchStatus(MatchStatus.IN_PROGRESS)
+                    .matchStartTimestamp(Instant.now(clock))
                     .lastUpdatedTimestamp(Instant.now(clock))
                     .build();
             matchIdToMatchDetailsMapping.put(matchId, updatedMatch);
             var concatenatedTeamIds = concatenateTeamIds(match.getHomeTeam(), match.getAwayTeam());
             matchTeamIdsToMatchDetailsMapping.put(concatenatedTeamIds, updatedMatch);
+            inProgressPlayingTeamIdsSet.add(match.getHomeTeam().getId());
+            inProgressPlayingTeamIdsSet.add(match.getAwayTeam().getId());
             return updatedMatch;
         } finally {
             writeLock.unlock();
@@ -124,7 +134,8 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
-            verifyMatchIdRegistered(matchId);
+            verifyMatchIdRegisteredWithCurrentStatus(matchId, EnumSet.of(MatchStatus.IN_PROGRESS));
+            verifyUpdateMatchScoresNonNegative(matchId, homeTeamScore, awayTeamScore);
             var matchDetails = matchIdToMatchDetailsMapping.get(matchId);
             var updatedMatchDetails = matchDetails.toBuilder()
                     .homeTeamScore(homeTeamScore)
@@ -161,7 +172,7 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
-            verifyMatchIdRegistered(matchId);
+            verifyMatchIdRegisteredWithCurrentStatus(matchId, EnumSet.of(MatchStatus.IN_PROGRESS));
             var match = matchIdToMatchDetailsMapping.get(matchId);
             var updatedMatch = match.toBuilder()
                     .matchStatus(MatchStatus.FINISHED)
@@ -170,6 +181,8 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
             matchIdToMatchDetailsMapping.put(matchId, updatedMatch);
             var concatenatedTeamIds = concatenateTeamIds(match.getHomeTeam(), match.getAwayTeam());
             matchTeamIdsToMatchDetailsMapping.put(concatenatedTeamIds, updatedMatch);
+            inProgressPlayingTeamIdsSet.remove(match.getHomeTeam().getId());
+            inProgressPlayingTeamIdsSet.remove(match.getAwayTeam().getId());
             return updatedMatch;
         } finally {
             writeLock.unlock();
@@ -197,7 +210,7 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         var writeLock = readWriteLock.writeLock();
         writeLock.lock();
         try {
-            verifyMatchIdRegistered(matchId);
+            verifyMatchIdRegisteredWithCurrentStatus(matchId, EnumSet.of(MatchStatus.REGISTERED, MatchStatus.FINISHED));
             var removedMatch = matchIdToMatchDetailsMapping.remove(matchId);
             var concatenatedTeamIds = concatenateTeamIds(removedMatch.getHomeTeam(), removedMatch.getAwayTeam());
             matchTeamIdsToMatchDetailsMapping.remove(concatenatedTeamIds);
@@ -283,9 +296,24 @@ public class DefaultMatchRegistrar implements MatchRegistrar {
         return format(CONCATENATED_TEAM_IDS_TEMPLATE, homeTeam.getId(), awayTeam.getId());
     }
 
-    private void verifyMatchIdRegistered(int matchId) {
+    private void verifyMatchIdRegisteredWithCurrentStatus(int matchId, Set<MatchStatus> expectedValidStatuses) {
         if (!matchIdToMatchDetailsMapping.containsKey(matchId)) {
             throw new MatchNotRegisteredException(matchId);
+        }
+        if (!expectedValidStatuses.contains(matchIdToMatchDetailsMapping.get(matchId).getMatchStatus())) {
+            throw new MatchInvalidUpdateException(format("match '%d' should be in one of statuses '%s' to proceed with update", matchId, expectedValidStatuses));
+        }
+    }
+
+    private void verifyUpdateMatchScoresNonNegative(int matchId, int homeTeamScore, int awayTeamScore) {
+        if (homeTeamScore < 0 || awayTeamScore < 0) {
+            throw new MatchInvalidUpdateException(format("match '%d' scores should be non negative values, but it was provided '%d' and '%d'", matchId, homeTeamScore, awayTeamScore));
+        }
+    }
+
+    private void verifyTeamInProgressPlayingOnlyInSingleMatch(int teamId) {
+        if (inProgressPlayingTeamIdsSet.contains(teamId)) {
+            throw new MatchInvalidUpdateException(format("team '%d' already playing now in another active match", teamId));
         }
     }
 

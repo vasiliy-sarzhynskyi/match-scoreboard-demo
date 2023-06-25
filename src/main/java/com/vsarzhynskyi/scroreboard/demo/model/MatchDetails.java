@@ -14,5 +14,6 @@ public class MatchDetails {
     Team awayTeam;
     int awayTeamScore;
     MatchStatus matchStatus;
+    Instant matchStartTimestamp;
     Instant lastUpdatedTimestamp;
 }

@@ -103,7 +103,13 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
 
         and:
         scoreboardSummary.getMatches().size() == 1
-        scoreboardSummary.getMatches().get(0).getMatchId() == MATCH_ID
+        def matchScoreboardPresentation = scoreboardSummary.getMatches().get(0)
+        matchScoreboardPresentation.getMatchId() == MATCH_ID
+        matchScoreboardPresentation.getMatchScoreboardRank() == 1
+        matchScoreboardPresentation.getHomeTeam().getId() == TEAM_ID_1
+        matchScoreboardPresentation.getHomeTeamScore() == 0
+        matchScoreboardPresentation.getAwayTeam().getId() == TEAM_ID_2
+        matchScoreboardPresentation.getAwayTeamScore() == 0
     }
 
     def 'should start match by team IDs and team names and in result scoreboard updated'() {
@@ -130,9 +136,11 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
                 .build()
         def startedMatchDetails1 = registeredMatchDetails1.toBuilder()
                 .matchStatus(MatchStatus.IN_PROGRESS)
+                .matchStartTimestamp(Instant.ofEpochMilli(FIXED_EPOCH_MILLI + 10))
                 .build()
         def startedMatchDetails2 = registeredMatchDetails2.toBuilder()
                 .matchStatus(MatchStatus.IN_PROGRESS)
+                .matchStartTimestamp(Instant.ofEpochMilli(FIXED_EPOCH_MILLI + 20))
                 .build()
 
         when:
@@ -175,7 +183,9 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
         def matchDetails = MatchDetails.builder()
                 .matchId(MATCH_ID)
                 .homeTeam(team1)
+                .homeTeamScore(homeTeamScore)
                 .awayTeam(team2)
+                .awayTeamScore(awayTeamScore)
                 .matchStatus(MatchStatus.IN_PROGRESS)
                 .build()
 
@@ -196,7 +206,13 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
         and:
         updatedMatchDetails == matchDetails
         scoreboardSummary.getMatches().size() == 1
-        scoreboardSummary.getMatches().get(0).getMatchId() == MATCH_ID
+        def matchScoreboardPresentation = scoreboardSummary.getMatches().get(0)
+        matchScoreboardPresentation.getMatchId() == MATCH_ID
+        matchScoreboardPresentation.getMatchScoreboardRank() == 1
+        matchScoreboardPresentation.getHomeTeam().getId() == TEAM_ID_1
+        matchScoreboardPresentation.getHomeTeamScore() == 2
+        matchScoreboardPresentation.getAwayTeam().getId() == TEAM_ID_2
+        matchScoreboardPresentation.getAwayTeamScore() == 3
     }
 
     def 'should update match by team IDs and team names and in result scoreboard updated'() {
@@ -489,6 +505,7 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
                 .awayTeam(team2)
                 .awayTeamScore(3)
                 .matchStatus(MatchStatus.IN_PROGRESS)
+                .matchStartTimestamp(Instant.ofEpochMilli(FIXED_EPOCH_MILLI + 10))
                 .build()
         def matchDetails2 = MatchDetails.builder()
                 .matchId(128)
@@ -497,6 +514,7 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
                 .awayTeam(team2)
                 .awayTeamScore(3)
                 .matchStatus(MatchStatus.IN_PROGRESS)
+                .matchStartTimestamp(Instant.ofEpochMilli(FIXED_EPOCH_MILLI + 20))
                 .build()
         def matchDetails3 = MatchDetails.builder()
                 .matchId(129)
@@ -505,6 +523,7 @@ class DefaultScoreboardAwareMatchRegistrarTest extends Specification {
                 .awayTeam(team2)
                 .awayTeamScore(3)
                 .matchStatus(MatchStatus.IN_PROGRESS)
+                .matchStartTimestamp(Instant.ofEpochMilli(FIXED_EPOCH_MILLI + 30))
                 .build()
 
         when:

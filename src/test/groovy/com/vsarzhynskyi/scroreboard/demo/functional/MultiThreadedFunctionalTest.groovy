@@ -30,7 +30,7 @@ class MultiThreadedFunctionalTest extends Specification {
         when:
         (1..100).each { it ->
             {
-                def teamName = 'Team_' + it
+                def teamName = 'Team' + it
                 threadPool.submit({ teamRegistrar.registerTeam(teamName) })
             }
         }
@@ -43,8 +43,8 @@ class MultiThreadedFunctionalTest extends Specification {
         when:
         (1..50).each { it ->
             {
-                def teamName1 = 'Team_' + it
-                def teamName2 = 'Team_' + (it + 50)
+                def teamName1 = 'Team' + it
+                def teamName2 = 'Team' + (it + 50)
                 threadPool.submit({
                     scoreboardAwareMatchRegistrar.registerMatch(teamName1, teamName2)
                     scoreboardAwareMatchRegistrar.startMatch(teamName1, teamName2)
@@ -61,8 +61,8 @@ class MultiThreadedFunctionalTest extends Specification {
         when:
         (1..50).each { it ->
             {
-                def teamName1 = 'Team_' + it
-                def teamName2 = 'Team_' + (it + 50)
+                def teamName1 = 'Team' + it
+                def teamName2 = 'Team' + (it + 50)
                 threadPool.submit({
                     scoreboardAwareMatchRegistrar.updateMatchScore(teamName1, ThreadLocalRandom.current().nextInt(5) + 1, teamName2, ThreadLocalRandom.current().nextInt(5) + 1)
                 })

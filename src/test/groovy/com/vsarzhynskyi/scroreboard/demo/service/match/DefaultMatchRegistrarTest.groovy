@@ -1,6 +1,7 @@
 package com.vsarzhynskyi.scroreboard.demo.service.match
 
 import com.vsarzhynskyi.scroreboard.demo.exception.MatchAlreadyRegisteredException
+import com.vsarzhynskyi.scroreboard.demo.exception.MatchInvalidUpdateException
 import com.vsarzhynskyi.scroreboard.demo.exception.MatchNotRegisteredException
 import com.vsarzhynskyi.scroreboard.demo.model.MatchDetails
 import com.vsarzhynskyi.scroreboard.demo.model.MatchStatus
@@ -8,6 +9,7 @@ import com.vsarzhynskyi.scroreboard.demo.model.Team
 import com.vsarzhynskyi.scroreboard.demo.service.IdGenerator
 import com.vsarzhynskyi.scroreboard.demo.service.team.TeamRegistrar
 import spock.lang.Specification
+import spock.lang.Unroll
 
 import java.time.Clock
 import java.time.Instant
@@ -139,6 +141,7 @@ class DefaultMatchRegistrarTest extends Specification {
         and:
         startedMatch.matchStatus == MatchStatus.IN_PROGRESS
         startedMatch.matchId == registeredMatch.getMatchId()
+        startedMatch.matchStartTimestamp == clock.instant()
     }
 
     def 'should start registered match by match team IDs'() {
@@ -227,6 +230,81 @@ class DefaultMatchRegistrarTest extends Specification {
 
         and:
         thrown(MatchNotRegisteredException)
+    }
+
+    def 'should fail start registered match if specific team already actively playing in another match'() {
+        given:
+        def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
+        def team1 = new Team(TEAM_ID_1, TEAM_NAME_1)
+        def team2 = new Team(TEAM_ID_2, TEAM_NAME_2)
+        def anotherTeamName = 'Super Team'
+        def anotherMatchId = 659
+        def team3 = new Team(787, anotherTeamName)
+
+        when:
+        matchRegistrar.registerMatch(TEAM_NAME_1, TEAM_NAME_2)
+        matchRegistrar.registerMatch(TEAM_NAME_2, anotherTeamName)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        2 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        1 * teamRegistrar.getTeam(anotherTeamName) >> team3
+        1 * matchIdGenerator.nextId() >> MATCH_ID
+        1 * matchIdGenerator.nextId() >> anotherMatchId
+        0 * _
+
+        when:
+        def startedMatch = matchRegistrar.startMatch(MATCH_ID)
+
+        then:
+        0 * _
+
+        and:
+        startedMatch.matchStatus == MatchStatus.IN_PROGRESS
+
+        when:
+        matchRegistrar.startMatch(anotherMatchId)
+
+        then:
+        0 * _
+
+        and:
+        thrown(MatchInvalidUpdateException)
+    }
+
+    def 'should allow start registered match if specific team already completed previous another match'() {
+        given:
+        def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
+        def team1 = new Team(TEAM_ID_1, TEAM_NAME_1)
+        def team2 = new Team(TEAM_ID_2, TEAM_NAME_2)
+        def anotherTeamName = 'Super Team'
+        def anotherMatchId = 659
+        def team3 = new Team(787, anotherTeamName)
+
+        when:
+        matchRegistrar.registerMatch(TEAM_NAME_1, TEAM_NAME_2)
+        matchRegistrar.registerMatch(TEAM_NAME_2, anotherTeamName)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        2 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        1 * teamRegistrar.getTeam(anotherTeamName) >> team3
+        1 * matchIdGenerator.nextId() >> MATCH_ID
+        1 * matchIdGenerator.nextId() >> anotherMatchId
+        0 * _
+
+        when:
+        matchRegistrar.startMatch(MATCH_ID)
+        matchRegistrar.finishMatch(MATCH_ID)
+
+        then:
+        0 * _
+
+        when:
+        matchRegistrar.startMatch(anotherMatchId)
+
+        then:
+        0 * _
     }
 
     def 'should update active match score by match ID'() {
@@ -326,6 +404,68 @@ class DefaultMatchRegistrarTest extends Specification {
         updatedMatch.getAwayTeamScore() == 3
     }
 
+    def 'should throw exception on update score for non active match'() {
+        given:
+        def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
+        def team1 = new Team(TEAM_ID_1, TEAM_NAME_1)
+        def team2 = new Team(TEAM_ID_2, TEAM_NAME_2)
+
+        when:
+        matchRegistrar.registerMatch(TEAM_NAME_1, TEAM_NAME_2)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        1 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        1 * matchIdGenerator.nextId() >> MATCH_ID
+        0 * _
+
+        when:
+        matchRegistrar.updateMatchScore(TEAM_NAME_1, 2, TEAM_NAME_2, 3)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        1 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        0 * _
+
+        and:
+        thrown(MatchInvalidUpdateException)
+    }
+
+    @Unroll
+    def 'should throw exception on update active match score with negative value'() {
+        given:
+        def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
+        def team1 = new Team(TEAM_ID_1, TEAM_NAME_1)
+        def team2 = new Team(TEAM_ID_2, TEAM_NAME_2)
+
+        when:
+        matchRegistrar.registerMatch(TEAM_NAME_1, TEAM_NAME_2)
+        matchRegistrar.startMatch(MATCH_ID)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        1 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        1 * matchIdGenerator.nextId() >> MATCH_ID
+        0 * _
+
+        when:
+        matchRegistrar.updateMatchScore(TEAM_NAME_1, homeTeamScore, TEAM_NAME_2, awayTeamScore)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        1 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        0 * _
+
+        and:
+        thrown(MatchInvalidUpdateException)
+
+        where:
+        homeTeamScore | awayTeamScore
+        -2            | -5
+        -2            | 1
+        1             | -3
+    }
+
     def 'should finish active match by match ID'() {
         given:
         def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
@@ -409,6 +549,31 @@ class DefaultMatchRegistrarTest extends Specification {
 
         and:
         finishedMatch.matchStatus == MatchStatus.FINISHED
+    }
+
+    def 'should throw exception on finish non active match'() {
+        given:
+        def matchRegistrar = new DefaultMatchRegistrar(matchIdGenerator, teamRegistrar, clock)
+        def team1 = new Team(TEAM_ID_1, TEAM_NAME_1)
+        def team2 = new Team(TEAM_ID_2, TEAM_NAME_2)
+
+        when:
+        matchRegistrar.registerMatch(TEAM_NAME_1, TEAM_NAME_2)
+
+        then:
+        1 * teamRegistrar.getTeam(TEAM_NAME_1) >> team1
+        1 * teamRegistrar.getTeam(TEAM_NAME_2) >> team2
+        1 * matchIdGenerator.nextId() >> MATCH_ID
+        0 * _
+
+        when:
+        matchRegistrar.finishMatch(MATCH_ID)
+
+        then:
+        0 * _
+
+        and:
+        thrown(MatchInvalidUpdateException)
     }
 
     def 'should unregister active match by match ID'() {
@@ -579,6 +744,7 @@ class DefaultMatchRegistrarTest extends Specification {
         allMatches.size() == 2
 
         when:
+        matchRegistrar.finishMatch(MATCH_ID)
         matchRegistrar.unregisterMatch(MATCH_ID)
 
         then:

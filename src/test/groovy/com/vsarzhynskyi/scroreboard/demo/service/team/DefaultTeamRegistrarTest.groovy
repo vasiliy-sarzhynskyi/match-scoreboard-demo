@@ -1,9 +1,11 @@
 package com.vsarzhynskyi.scroreboard.demo.service.team
 
 import com.vsarzhynskyi.scroreboard.demo.exception.TeamAlreadyRegisteredException
+import com.vsarzhynskyi.scroreboard.demo.exception.TeamNameInvalidException
 import com.vsarzhynskyi.scroreboard.demo.exception.TeamNotRegisteredException
 import com.vsarzhynskyi.scroreboard.demo.service.IdGenerator
 import spock.lang.Specification
+import spock.lang.Unroll
 
 class DefaultTeamRegistrarTest extends Specification {
 
@@ -12,20 +14,26 @@ class DefaultTeamRegistrarTest extends Specification {
 
     def teamIdGenerator = Mock(IdGenerator)
 
+    @Unroll
     def 'should register team'() {
         given:
         def teamRegistrar = new DefaultTeamRegistrar(teamIdGenerator)
 
         when:
-        def registeredTeam = teamRegistrar.registerTeam(TEAM_NAME)
+        def registeredTeam = teamRegistrar.registerTeam(teamName)
 
         then:
         1 * teamIdGenerator.nextId() >> TEAM_ID
         0 * _
 
         and:
-        registeredTeam.getName() == TEAM_NAME
+        registeredTeam.getName() == teamName
         registeredTeam.getId() == TEAM_ID
+
+        where:
+        teamName << [
+                'Ukraine', 'Team 1', 'Team-2', 'United Kingdom', 'Super    team'
+        ]
     }
 
     def 'should throw exception on register already registered team'() {
@@ -44,6 +52,26 @@ class DefaultTeamRegistrarTest extends Specification {
 
         then:
         thrown(TeamAlreadyRegisteredException)
+    }
+
+    @Unroll
+    def 'should throw exception on register invalid team name'() {
+        given:
+        def teamRegistrar = new DefaultTeamRegistrar(teamIdGenerator)
+
+        when:
+        teamRegistrar.registerTeam(teamName)
+
+        then:
+        0 * _
+
+        and:
+        thrown(TeamNameInvalidException)
+
+        where:
+        teamName << [
+                null, '    ', '? team', 'Team ++ Team'
+        ]
     }
 
     def 'should unregister already registered team by team ID'() {
@@ -237,7 +265,7 @@ class DefaultTeamRegistrarTest extends Specification {
         0 * _
 
         fetchedTeams.size() == 3
-        fetchedTeams.collect({it.name}).toSet() == [TEAM_NAME, 'Slovenia', 'Austria'] as Set
+        fetchedTeams.collect({ it.name }).toSet() == [TEAM_NAME, 'Slovenia', 'Austria'] as Set
     }
 
 }
